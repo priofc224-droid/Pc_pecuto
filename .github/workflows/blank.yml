@@ -1,0 +1,104 @@
+
+# ============================================
+# PROJETO: WINDOWS GAMING REMOTO
+# DIAGNOSTICO DE HARDWARE E CONECTIVIDADE
+# ============================================
+
+$ErrorActionPreference = "Continue"
+
+function Show-Section($Title) {
+    Write-Host ""
+    Write-Host "================================"
+    Write-Host $Title
+    Write-Host "================================"
+}
+
+Show-Section "1. SISTEMA OPERACIONAL"
+
+$OS = Get-CimInstance Win32_OperatingSystem
+
+Write-Host "Sistema: $($OS.Caption)"
+Write-Host "Versao: $($OS.Version)"
+Write-Host "Arquitetura: $($OS.OSArchitecture)"
+
+Show-Section "2. PROCESSADOR"
+
+$CPU = Get-CimInstance Win32_Processor
+
+foreach ($Item in $CPU) {
+    Write-Host "Modelo: $($Item.Name)"
+    Write-Host "Nucleos: $($Item.NumberOfCores)"
+    Write-Host "Processadores logicos: $($Item.NumberOfLogicalProcessors)"
+}
+
+Show-Section "3. MEMORIA RAM"
+
+$RAM = Get-CimInstance Win32_ComputerSystem
+$RAMGB = [math]::Round($RAM.TotalPhysicalMemory / 1GB, 2)
+
+Write-Host "RAM total: $RAMGB GB"
+
+Show-Section "4. PLACA DE VIDEO"
+
+$GPUs = Get-CimInstance Win32_VideoController
+
+foreach ($GPU in $GPUs) {
+    Write-Host "GPU: $($GPU.Name)"
+
+    if ($GPU.AdapterRAM) {
+        $VRAM = [math]::Round($GPU.AdapterRAM / 1GB, 2)
+        Write-Host "Memoria grafica reportada: $VRAM GB"
+    }
+}
+
+Show-Section "5. ESPACO EM DISCO"
+
+Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" |
+    ForEach-Object {
+        $FreeGB = [math]::Round($_.FreeSpace / 1GB, 2)
+        $SizeGB = [math]::Round($_.Size / 1GB, 2)
+
+        Write-Host "$($_.DeviceID) Livre: $FreeGB GB / $SizeGB GB"
+    }
+
+Show-Section "6. ESTADO DO TAILSCALE"
+
+$TS = Get-Command tailscale.exe `
+    -ErrorAction SilentlyContinue
+
+if ($TS) {
+    Write-Host "Executavel do Tailscale encontrado."
+
+    & tailscale.exe status
+
+    Write-Host ""
+    Write-Host "Enderecos Tailscale:"
+    & tailscale.exe ip -4
+}
+else {
+    Write-Host "Tailscale CLI nao encontrado no PATH."
+    Write-Host "Verifique se o aplicativo esta instalado."
+}
+
+Show-Section "7. ACESSO REMOTO"
+
+$RDP = Get-ItemProperty `
+    "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" `
+    -Name fDenyTSConnections `
+    -ErrorAction SilentlyContinue
+
+if ($RDP) {
+    if ($RDP.fDenyTSConnections -eq 0) {
+        Write-Host "A area de trabalho remota esta habilitada."
+    }
+    else {
+        Write-Host "A area de trabalho remota esta desabilitada."
+    }
+}
+
+Write-Host ""
+Write-Host "NOTA: este teste nao altera o firewall."
+Write-Host "NOTA: este teste nao instala nem inicia GTA V."
+Write-Host "NOTA: GPU e compatibilidade precisam ser avaliadas."
+Write-Host ""
+Write-Host "DIAGNOSTICO CONCLUIDO."
